@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Qwala</string>
+    <string name="action_settings">Settings</string>
+    <string name="section_format">Hello World from section: %1$d</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="btSpeak">Speak</string>
+    <string name="tvTextMatches">Text Matches</string>
+    <string name="sNoOfMatches">No of Matches</string>
+    <string name="etSearchMint">Speech hint here</string>
+
+
+
+    <string name="off">OFF</string>
+    <string name="on">ON</string>
+    <string name="togglebutton">ToggleButton</string>
+    <string name="button">Button</string>
+    <string name="stop">STOP</string>
+    <string name="start">Start</string>
+    <string name="togglebutton2">ToggleButton</string>
+
+    <string-array name="saNoOfMatches">
+
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </string-array>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="title_activity_main2">Main2Activity</string>
+</resources>
