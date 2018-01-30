@@ -101,10 +101,10 @@ public class BackgroundTasks extends AsyncTask<String ,Void, String>{
             int code = (json_data.getInt("data"));
             Log.v("data",code + "");
             if(code==1){
-                msg="User Register successfully";
+                msg="successfully";
 
             }else{
-                msg="User Registration Failed..";
+                msg="Failed..";
 
             }
 
