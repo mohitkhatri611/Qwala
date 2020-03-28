@@ -36,9 +36,11 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Spinner;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -54,7 +56,15 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity implements ConversionCallaback {
-//..................Main speak variables start.............
+
+    private static final String TAG = "MainActivity";
+
+    private SectionPageAdapter mSectionsPageAdapter;
+    private ViewPager mViewPager;
+   private EditText editIpGet;
+
+
+    //..................Main speak variables start.............
     private static final int TTS = 0;
     private static final int STT = 1;
     private static int CURRENT_MODE = -1;
@@ -62,55 +72,52 @@ public class MainActivity extends AppCompatActivity implements ConversionCallaba
     private EditText ttsInput;
     private TextView sttOutput;
     private TextView erroConsole;
-   private FloatingActionButton speechToText;
+    private FloatingActionButton speechToText;
     private FloatingActionButton textToSpeech;
 
     //...............................Main speak Varaibles TTS-STT END................
 
 
     private static final int VOICE_RECOGNITION_REQUEST_CODE = 1000;
-  //  private EditText metTextHint, txtMessagequery;
+    //  private EditText metTextHint, txtMessagequery;
     private ListView mlvTextMatches;
     private Spinner msTextmatches;
     private Button mbtnSpeak, mbuttonSendMessage;
-
+    public Switch switchNetwork;
+    private String ipaddress;
+    GlobalVariable globalVariable = new GlobalVariable();
     //private TextView txtViewOutput;
-    private SectionsPagerAdapter mSectionsPagerAdapter;
-    private ViewPager mViewPager;
+  //  private SectionsPagerAdapter mSectionsPagerAdapter;
+   // private ViewPager mViewPager;
 
-    public static  TextView txtViewOutput;
+    public static TextView txtViewOutput;
+
+    public static String wifiModuleIp = "";
+    public static int wifiModulePort = 0;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-       // setContentView(R.layout.activity_main);
+         setContentView(R.layout.activity_main);
 
-        if (Build.VERSION.SDK_INT >= 23) {
-            // Pain in A$$ Marshmallow+ Permission APIs
-            requestForPermission();
-        } else {
-            // Pre-Marshmallow
-            if (!isConnected(MainActivity.this)) {
-                buildDialog(MainActivity.this).show();
-                return;
-            } else {
-                setContentView(R.layout.activity_main);
-                Toast.makeText(MainActivity.this, "Welcome", Toast.LENGTH_SHORT).show();
-                setUpView();
-            }
+        Log.d(TAG, "onCreate: Starting.");
 
-        }
+
 
 
         //   metTextHint = (EditText) findViewById(R.id.etTextHint);
         // mlvTextMatches = (ListView) findViewById(R.id.lvTextMatches);
         //msTextmatches = (Spinner) findViewById(R.id.sNOfMatches);
 
-
-        txtViewOutput = (TextView)findViewById(R.id.txtOutput);
+        switchNetwork = (Switch)findViewById(R.id.switchNet);
+        //editIpGet=(EditText)findViewById(R.id.ipAddress);
+        txtViewOutput = (TextView) findViewById(R.id.txtOutput);
         mbtnSpeak = (Button) findViewById(R.id.btSpeak);
-//            txtMessagequery = (EditText) findViewById(R.id.txtquery);
-        mbuttonSendMessage = (Button) findViewById(R.id.btnSendMessage);
+        //   txtMessagequery = (EditText) findViewById(R.id.txtquery);
+      //  mbuttonSendMessage = (Button) findViewById(R.id.btnSendMessage);
+        //Button to trigger STT
+        speechToText = (FloatingActionButton) findViewById(R.id.start_listening);
 
 //don't set mbutton like this if you are using fragment activity.......................
 //            mbuttonSendMessage.setOnClickListener(new View.OnClickListener() {
@@ -121,42 +128,30 @@ public class MainActivity extends AppCompatActivity implements ConversionCallaba
 //                }
 //            });
 
-
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        // Create the adapter that will return a fragment for each of the three
-        // primary sections of the activity.
-        mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
+        mSectionsPageAdapter = new SectionPageAdapter(getSupportFragmentManager());
 
         // Set up the ViewPager with the sections adapter.
         mViewPager = (ViewPager) findViewById(R.id.container);
-        mViewPager.setAdapter(mSectionsPagerAdapter);
+        setupViewPager(mViewPager);
 
         TabLayout tabLayout = (TabLayout) findViewById(R.id.tabs);
         tabLayout.setupWithViewPager(mViewPager);
+       Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+       setSupportActionBar(toolbar);
+        // Create the adapter that will return a fragment for each of the three
+        // primary sections of the activity.
+      //  mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
+
+        // Set up the ViewPager with the sections adapter.
+        //mViewPager = (ViewPager) findViewById(R.id.container1);
 
 
-    }
+        String iPandPort= ((GlobalVariable)MainActivity.this.getApplicationContext()).getLocalHostip();
+        //String iPandPort="192.168.43.125:21567";
+        getIPandPort(iPandPort);
 
-        /**
-         * Set up listeners on View
-         */
-    private void setUpView() {
+    //Listen and convert convert speech to text
 
-        //Text to speech Input
-     //   ttsInput = (EditText) findViewById(R.id.tts_input);
-        //Speech to text output
-      //  sttOutput = (TextView) findViewById(R.id.stt_output);
-        //Failure message
-      //  erroConsole = (TextView) findViewById(R.id.error_output);
-
-        //Button to trigger TTS
-       // textToSpeech = (FloatingActionButton) findViewById(R.id.talk);
-
-        //Button to trigger STT
-        speechToText = (FloatingActionButton) findViewById(R.id.start_listening);
-
-        //Listen and convert convert speech to text
         speechToText.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -169,11 +164,91 @@ public class MainActivity extends AppCompatActivity implements ConversionCallaba
                         getTranslator(TranslatorFactory.TRANSLATOR_TYPE.SPEECH_TO_TEXT, MainActivity.this).
                         initialize("Hello There", MainActivity.this);
 
-
-
                 CURRENT_MODE = STT;
             }
         });
+
+
+        switchNetwork.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                if(switchNetwork.isChecked()){
+                    //textView.setText("Swich On");
+                    ((GlobalVariable)getApplicationContext()).setNetworkState("online");
+                    String  size=((GlobalVariable)MainActivity.this.getApplicationContext()).getNetworkState();
+                    Toast.makeText(MainActivity.this, size, Toast.LENGTH_SHORT).show();
+                }else{
+
+                    ((GlobalVariable)getApplicationContext()).setNetworkState("offline");
+                    String  size=((GlobalVariable)MainActivity.this.getApplicationContext()).getNetworkState();
+                    Toast.makeText(MainActivity.this, size, Toast.LENGTH_SHORT).show();
+                    //textView.setText("Swich Off");
+                }
+            }
+        });
+
+        ((GlobalVariable)getApplicationContext()).setNetworkState("offline");
+
+        switchCheck();
+
+    }
+
+    private void setupViewPager(ViewPager viewPager) {
+
+        SectionPageAdapter adapter = new SectionPageAdapter(getSupportFragmentManager());
+
+        adapter.addFragment(new Home(), "Home");
+        adapter.addFragment(new Controls(), "Controls");
+        adapter.addFragment(new TimerFragment(), "Timer");
+        viewPager.setAdapter(adapter);
+    }
+
+    /**
+     * Set up listeners on View
+     */
+    private void setUpView() {
+
+        //Text to speech Input
+        //   ttsInput = (EditText) findViewById(R.id.tts_input);
+        //Speech to text output
+        //  sttOutput = (TextView) findViewById(R.id.stt_output);
+        //Failure message
+        //  erroConsole = (TextView) findViewById(R.id.error_output);
+
+        //Button to trigger TTS
+        // textToSpeech = (FloatingActionButton) findViewById(R.id.talk);
+
+        //Button to trigger STT
+      //  speechToText = (FloatingActionButton) findViewById(R.id.start_listening);
+
+        //Listen and convert convert speech to text
+//        speechToText.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                Snackbar.make(view, "Listening", Snackbar.LENGTH_LONG)
+//                        .setAction("Action", null).show();
+//                new Thread(new Runnable() {
+//
+//                    public void run() {
+//                        // a potentially  time consuming task
+//
+//                        speechToText.post(new Runnable() {
+//                            public void run() {
+//                                //Ask translator factory to start speech tpo text convertion
+//                                //Hello There is optional
+//                                TranslatorFactory.getInstance().
+//                                        getTranslator(TranslatorFactory.TRANSLATOR_TYPE.SPEECH_TO_TEXT, (ConversionCallaback) MainActivity.this).
+//                                        initialize("Hello There", MainActivity.this);
+//                            }
+//                        });
+//                    }
+//                }).start();
+//
+//
+//
+//                CURRENT_MODE = STT;
+//            }
+//        });
 
 
         //Read texts and convert them into speech
@@ -219,12 +294,12 @@ public class MainActivity extends AppCompatActivity implements ConversionCallaba
     @Override
     public void onSuccess(String result) {
 
-        Toast.makeText(this, "Result " + result, Toast.LENGTH_SHORT).show();
+       Toast.makeText(MainActivity.this, "Result "+ result, Toast.LENGTH_SHORT).show();
 
-        switch (CURRENT_MODE) {
-            case STT:
-               txtViewOutput.setText(result);
-        }
+//        switch (CURRENT_MODE) {
+//            case STT:
+//                sttOutput.setText(result);
+//        }
     }
 
     @Override
@@ -243,7 +318,6 @@ public class MainActivity extends AppCompatActivity implements ConversionCallaba
 
         erroConsole.setText(errorMessage);
     }
-
 
     /**
      * Request Permission
@@ -369,176 +443,121 @@ public class MainActivity extends AppCompatActivity implements ConversionCallaba
     /**
      * A placeholder fragment containing a simple view.
      */
-    public static class PlaceholderFragment extends Fragment {
-
-
-
-        /**
-         * The fragment argument representing the section number for this
-         * fragment.
-         */
-        private static final String ARG_SECTION_NUMBER = "section_number";
-
-        public PlaceholderFragment() {
-        }
-
-        /**
-         * Returns a new instance of this fragment for the given section
-         * number.
-         */
-        public static PlaceholderFragment newInstance(int sectionNumber) {
-            PlaceholderFragment fragment = new PlaceholderFragment();
-            Bundle args = new Bundle();
-            args.putInt(ARG_SECTION_NUMBER, sectionNumber);
-            fragment.setArguments(args);
-            return fragment;
-        }
-
-        @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                                 Bundle savedInstanceState) {
-
-
-
-            if(getArguments().getInt(ARG_SECTION_NUMBER)==1) {
-                View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-                Button mbuttonSendMessage = (Button) rootView.findViewById(R.id.btnSendMessage);
-                Button mbtnSpeak = (Button) rootView.findViewById(R.id.btSpeak);
-               final EditText txtMessagequery;
-                txtMessagequery = (EditText) rootView.findViewById(R.id.txtquery);
-
-
-                txtViewOutput = (TextView) rootView.findViewById(R.id.txtOutput);
-
-                final String[] query = new String[1];
-                mbuttonSendMessage.setOnClickListener(new View.OnClickListener()
-                {
-                    @Override
-                    public void onClick(View v)
-                    {
-                        MainActivity mainActivity= new MainActivity();
-                        query[0] =txtMessagequery.getText().toString();
-                        mainActivity.fn_insert(query[0]);
-                        Toast.makeText(getActivity(), query[0], Toast.LENGTH_SHORT).show();
-                        txtViewOutput.setText(query[0]);
-                    }
-                });
-
-
-                mbtnSpeak.setOnClickListener(new View.OnClickListener()
-                {
-                    @Override
-                    public void onClick(View v)
-                    {
-
-                       proptSpeechInput();
-
-
- //.....................code for ArrayAdapter storing for 10 using spinner.........................
-//                        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-//                        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getClass().getPackage().getName());
-//                        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, metTextHint.getText().toString());
-//                        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
-//                        if (msTextmatches.getSelectedItemPosition() == AdapterView.INVALID_POSITION) {
+//    public static class PlaceholderFragment extends Fragment {
 //
-//                            Toast.makeText(getActivity(), "Please select No. of Matches from Spinner", Toast.LENGTH_SHORT).show();
-//                            return;
-//                        }
 //
-//                        int noOfMatches = Integer.parseInt(msTextmatches.getSelectedItem().toString());
-//                        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, noOfMatches);
-//                        startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE);
-                    }
-                });
-                return rootView;
-            }
-            if(getArguments().getInt(ARG_SECTION_NUMBER)==2) {
-                View rootView = inflater.inflate(R.layout.fragment_controls, container, false);
-                return rootView;
-            }
-            else{
-                View rootView = inflater.inflate(R.layout.fragment_plus_one, container, false);
-                return rootView;
-
-            }
-
-        }
-
-        public void proptSpeechInput() {
-            Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            i.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getClass().getPackage().getName());
-            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
-            //i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
-           i.putExtra(RecognizerIntent.EXTRA_PROMPT, "SPEAK");
-
-
-            try {
-                startActivityForResult(i, 100);
-            } catch (ActivityNotFoundException a) {
-
-
-            }
-        }
-
-        @Override
-        public void onActivityResult(int requestCode, int resultCode, Intent data) {
-
-            super.onActivityResult(requestCode, resultCode, data);
-
-            switch (requestCode) {
-
-                case 100:
-                    if (resultCode == RESULT_OK && data != null) {
-
-                        ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-                       MainActivity mainActivity= new MainActivity();
-                        mainActivity.fn_insert(result.get(0));
-                        Toast.makeText(getActivity(), result.get(0), Toast.LENGTH_SHORT).show();
-                        txtViewOutput.setText(result.get(0));
-                        break;
-                    }
-
-            }
-        }
-    }
-
-    /**
-     * A {@link FragmentPagerAdapter} that returns a fragment corresponding to
-     * one of the sections/tabs/pages.
-     */
-    public class SectionsPagerAdapter extends FragmentPagerAdapter {
-
-        public SectionsPagerAdapter(FragmentManager fm) {
-            super(fm);
-        }
-
-        @Override
-        public Fragment getItem(int position) {
-            // getItem is called to instantiate the fragment for the given page.
-            // Return a PlaceholderFragment (defined as a static inner class below).
-            return PlaceholderFragment.newInstance(position + 1);
-        }
-
-        @Override
-        public int getCount() {
-            // Show 3 total pages.
-            return 3;
-        }
-
-        @Override
-        public CharSequence getPageTitle(int position) {
-            switch (position) {
-                case 0:
-                    return "Home";
-                case 1:
-                    return "Controls";
-                case 2:
-                    return "No Use";
-            }
-            return null;
-        }
-    }
+//        /**
+//         * The fragment argument representing the section number for this
+//         * fragment.
+//         */
+//        private static final String ARG_SECTION_NUMBER = "section_number";
+//
+//        public PlaceholderFragment() {
+//        }
+//
+//        /**
+//         * Returns a new instance of this fragment for the given section
+//         * number.
+//         */
+//        public static PlaceholderFragment newInstance(int sectionNumber) {
+//            PlaceholderFragment fragment = new PlaceholderFragment();
+//            Bundle args = new Bundle();
+//            args.putInt(ARG_SECTION_NUMBER, sectionNumber);
+//            fragment.setArguments(args);
+//            return fragment;
+//        }
+//
+//        @Override
+//        public View onCreateView(LayoutInflater inflater, ViewGroup container,
+//                                 Bundle savedInstanceState) {
+//            final MainActivity mainActivity = new MainActivity();
+//
+//            if (getArguments().getInt(ARG_SECTION_NUMBER) == 0) {
+//                View rootView = inflater.inflate(R.layout.fragment_main, container, false);
+//                Button mbuttonSendMessage = (Button) rootView.findViewById(R.id.btnSendMessage);
+//                Button mbtnSpeak = (Button) rootView.findViewById(R.id.btSpeak);
+//                final EditText txtMessagequery;
+//                txtMessagequery = (EditText) rootView.findViewById(R.id.txtquery);
+//                txtViewOutput = (TextView) rootView.findViewById(R.id.txtOutput);
+//
+//                final String[] query = new String[1];
+//                mbuttonSendMessage.setOnClickListener(new View.OnClickListener() {
+//                    @Override
+//                    public void onClick(View v) {
+//
+//                        query[0] = txtMessagequery.getText().toString();
+//                        mainActivity.fn_insert(query[0]);
+//                        Toast.makeText(getActivity(), query[0], Toast.LENGTH_SHORT).show();
+//                        txtViewOutput.setText(query[0]);
+//                    }
+//                });
+//
+//
+//                mbtnSpeak.setOnClickListener(new View.OnClickListener() {
+//                    @Override
+//                    public void onClick(View v) {
+//
+//                        proptSpeechInput();
+//
+//
+//                        //.....................code for ArrayAdapter storing for 10 using spinner.........................
+////                        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+////                        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getClass().getPackage().getName());
+////                        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, metTextHint.getText().toString());
+////                        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
+////                        if (msTextmatches.getSelectedItemPosition() == AdapterView.INVALID_POSITION) {
+////
+////                            Toast.makeText(getActivity(), "Please select No. of Matches from Spinner", Toast.LENGTH_SHORT).show();
+////                            return;
+////                        }
+////
+////                        int noOfMatches = Integer.parseInt(msTextmatches.getSelectedItem().toString());
+////                        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, noOfMatches);
+////                        startActivityForResult(intent, VOICE_RECOGNITION_REQUEST_CODE);
+//                    }
+//                });
+//                return rootView;
+//            }
+//            if (getArguments().getInt(ARG_SECTION_NUMBER) == 1) {
+//                //UI Element
+//                Button btnUp;
+//                Button btnDown;
+//                final EditText txtAddress;
+//                View rootView = inflater.inflate(R.layout.fragment_controls, container, false);
+//                btnUp = (Button) rootView.findViewById(R.id.btnUp);
+//                btnDown = (Button) rootView.findViewById(R.id.btnDown);
+//                txtAddress = (EditText) rootView.findViewById(R.id.ipAddress);
+//
+//                btnUp.setOnClickListener(new View.OnClickListener() {
+//                    @Override
+//                    public void onClick(View v) {
+//                        mainActivity.getIPandPort(txtAddress.getText().toString());
+//                        CMD = "Up";
+//                        Socket_AsyncTask cmd_increase_servo = new Socket_AsyncTask();
+//                        cmd_increase_servo.execute(CMD);
+//                    }
+//                });
+//                btnDown.setOnClickListener(new View.OnClickListener() {
+//                    @Override
+//                    public void onClick(View v) {
+//                        mainActivity.getIPandPort(txtAddress.getText().toString());
+//                        CMD = "Down";
+//                        Socket_AsyncTask cmd_increase_servo = new Socket_AsyncTask();
+//                        cmd_increase_servo.execute(CMD);
+//                    }
+//                });
+//
+//                return rootView;
+//            } else {
+//                View rootView = inflater.inflate(R.layout.fragment_plus_one, container, false);
+//                return rootView;
+//
+//            }
+//
+//        }
+//
+//
+//
 
 
     //code Started for google speech Prompt.....................................prompt
@@ -567,11 +586,12 @@ public class MainActivity extends AppCompatActivity implements ConversionCallaba
 
         }
     }
+
     public void speak(View view) {
 
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getClass().getPackage().getName());
-      //  intent.putExtra(RecognizerIntent.EXTRA_PROMPT, metTextHint.getText().toString());
+        //  intent.putExtra(RecognizerIntent.EXTRA_PROMPT, metTextHint.getText().toString());
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
         if (msTextmatches.getSelectedItemPosition() == AdapterView.INVALID_POSITION) {
 
@@ -627,33 +647,58 @@ public class MainActivity extends AppCompatActivity implements ConversionCallaba
 //
 //    }
 
-    public void showToastMessage(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+//    public void showToastMessage(String message) {
+//        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+//    }
+public void getIPandPort(String iPandPort) {
+
+    Log.d("MYTEST", "IP String: " + iPandPort);
+    String temp[] = iPandPort.split(":");
+    wifiModuleIp = temp[0];
+    wifiModulePort = Integer.valueOf(temp[1]);
+    Log.d("MY TEST", "IP:" + wifiModuleIp);
+    Log.d("MY TEST", "PORT:" + wifiModulePort);
+}
+    public  void fn_insert(Context context, String message) {
+
+        String  size=((GlobalVariable)context.getApplicationContext()).getNetworkState();
+        if(size=="online"){
+            // Pre-Marshmallow
+            if (!isConnected(context)) {
+                buildDialog(context).show();
+                Toast.makeText(context, "sorry no internet", Toast.LENGTH_SHORT).show();
+                return;
+            } else {
+                BackgroundTasks bg_login = new BackgroundTasks();
+                try {
+                    //String query = "insert into searchdb(input) values('" + message + "');";
+                    String query = "insert into searchdb(query) values('" + message + "');";
+                    //showToastMessage(message);
+                    GlobalVariable globalVariable = new GlobalVariable();
+                    String link = "http://" + globalVariable.getHost() + "/qwala/inserttabledata.php";
+
+                    //String link="http://mypatshala.com/qwala/inserttabledata.php";
+                    Log.v("error", query);
+                    String str = bg_login.execute(query, link).get();
+                    String msg = bg_login.insertuser(str);
+                    Log.v("error1", msg);
+                    //Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+                    // Toast.makeText(MainActivity.this, "hi", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, "ok", Toast.LENGTH_SHORT).show();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+        }
+
     }
+    else{
+            Socket_AsyncTask cmd_increase_servo = new Socket_AsyncTask();
+            try {
+                cmd_increase_servo.execute(message);
 
-    public void fn_insert(String message) {
-
-        BackgroundTasks bg_login = new BackgroundTasks();
-        try {
-            String query = "insert into searchdb(input) values('" + message + "');";
-            //showToastMessage(message);
-            GlobalVariable globalVariable= new GlobalVariable();
-            String link = "http://" + globalVariable.getHost()+ "/qwala/inserttabledata.php";
-
-            //String link="http://mypatshala.com/qwala/inserttabledata.php";
-            Log.v("error", query);
-            String str = bg_login.execute(query, link).get();
-            String msg = bg_login.insertuser(str);
-            Log.v("error1", msg);
-
-            //Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-           // Toast.makeText(MainActivity.this, "hi", Toast.LENGTH_SHORT).show();
-
-
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -689,5 +734,20 @@ public class MainActivity extends AppCompatActivity implements ConversionCallaba
         });
 
         return builder;
+    }
+
+
+    public void switchCheck(){
+
+        if(switchNetwork.isChecked()){
+            //textView.setText("Swich On");
+            String  size=((GlobalVariable)MainActivity.this.getApplicationContext()).getNetworkState();
+            Toast.makeText(MainActivity.this, size, Toast.LENGTH_SHORT).show();
+        }else{
+            //textView.setText("Swich Off");
+            String  size=((GlobalVariable)MainActivity.this.getApplicationContext()).getNetworkState();
+            Toast.makeText(MainActivity.this, size, Toast.LENGTH_SHORT).show();
+        }
+
     }
 }

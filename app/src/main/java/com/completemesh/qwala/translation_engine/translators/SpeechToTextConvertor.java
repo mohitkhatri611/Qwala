@@ -1,6 +1,7 @@
 package com.completemesh.qwala.translation_engine.translators;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
@@ -92,7 +93,7 @@ public class SpeechToTextConvertor implements IConvertor {
             data = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
             MainActivity mainActivity= new MainActivity();
 
-            mainActivity.fn_insert(data.get(0).toString());
+//            mainActivity.fn_insert(mainActivity, data.get(0).toString());
 
             //Toast.makeText(mainActivity, data.get(0).toString(), Toast.LENGTH_SHORT).show();
 
@@ -100,8 +101,9 @@ public class SpeechToTextConvertor implements IConvertor {
 //                Log.d(TAG, "result " + data.get(i));
 //                str += data.get(i) + "\n";
 //            }
-
-            conversionCallaback.onSuccess(data.get(0).toString());
+      String st1r="";
+      st1r=data.get(0).toString();
+            conversionCallaback.onSuccess(st1r);
         }
 
         public void onPartialResults(Bundle partialResults) {
